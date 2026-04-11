@@ -10,7 +10,7 @@ import ollama
 load_dotenv()
 
 client = OpenAI(base_url='http://localhost:3000/api',
-                api_key=os.getenv("OPENAI_API"))  # reads OPENAI_API_KEY from env
+                api_key=os.getenv("OLLAMA_API_KEY"))  # reads OPENAI_API_KEY from env
 
 SYSTEM_PROMPT = (
     "You are a financial analyst assistant. When answering questions about SEC 10-Q filings, "

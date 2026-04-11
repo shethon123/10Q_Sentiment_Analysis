@@ -29,13 +29,13 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 ### 2. Environment Variables
 
-Copy or create a `.env` file in the project root and set your OpenAI API key:
+Copy or create a `.env` file in the project root and set your Ollama API key:
 
 ```
-OPENAI_API_KEY=your_openai_api_key_here
+OLLAMA_API_KEY=your_ollama_api_key_here
 ```
 
-> ⚠️ **Required:** The app will not work without a valid `OPENAI_API_KEY` in `.env`.
+> ⚠️ **Required:** The app will not work without a valid `OLLAMA_API_KEY` in `.env`.
 
 ---
 
