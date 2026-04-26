@@ -1,7 +1,14 @@
 from openai import OpenAI
 import json
 import re
-from mcp_server import fetch_10q_mda, fetch_10q_risk_factors, fetch_10q_financials
+from mcp_server import (
+    fetch_10q_mda,
+    fetch_10q_risk_factors,
+    fetch_10q_financials,
+    fetch_10q_market_risk,
+    fetch_10q_legal_proceedings,
+    fetch_10q_all_sections,
+)
 import os
 from dotenv import load_dotenv
 import ollama
@@ -64,7 +71,55 @@ tools = [
         "type": "function",
         "function": {
             "name": "fetch_10q_financials",
-            "description": "Returns structured financial statements from a 10-Q.",
+            "description": "Returns structured financial statements (income statement, balance sheet, cash flow) from a 10-Q.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {"type": "string", "description": "Stock ticker symbol (e.g. 'AAPL')"},
+                    "year": {"type": "integer", "description": "Filing year (e.g. 2024). Omit for most recent."},
+                    "quarter": {"type": "integer", "description": "Fiscal quarter 1-3. Omit for most recent."},
+                },
+                "required": ["ticker"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_10q_market_risk",
+            "description": "Returns the Market Risk section (Part I, Item 3) — interest rate risk, FX exposure, commodity risk.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {"type": "string", "description": "Stock ticker symbol (e.g. 'AAPL')"},
+                    "year": {"type": "integer", "description": "Filing year (e.g. 2024). Omit for most recent."},
+                    "quarter": {"type": "integer", "description": "Fiscal quarter 1-3. Omit for most recent."},
+                },
+                "required": ["ticker"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_10q_legal_proceedings",
+            "description": "Returns the Legal Proceedings section (Part II, Item 1) — litigation, regulatory actions, legal risks.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {"type": "string", "description": "Stock ticker symbol (e.g. 'AAPL')"},
+                    "year": {"type": "integer", "description": "Filing year (e.g. 2024). Omit for most recent."},
+                    "quarter": {"type": "integer", "description": "Fiscal quarter 1-3. Omit for most recent."},
+                },
+                "required": ["ticker"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_10q_all_sections",
+            "description": "Returns ALL 10-Q sections in one call: MD&A, risk factors, market risk, controls, legal proceedings, and financials. Use this when you need a comprehensive view or are unsure which sections are relevant. Check metadata.available_sections to see what keys this filing actually contains.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -82,6 +137,9 @@ tool_registry = {
     "fetch_10q_mda": fetch_10q_mda,
     "fetch_10q_risk_factors": fetch_10q_risk_factors,
     "fetch_10q_financials": fetch_10q_financials,
+    "fetch_10q_market_risk": fetch_10q_market_risk,
+    "fetch_10q_legal_proceedings": fetch_10q_legal_proceedings,
+    "fetch_10q_all_sections": fetch_10q_all_sections,
 }
 
 def parse_llm_response(content: str):

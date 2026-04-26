@@ -1,15 +1,14 @@
 import edgar
 from edgar import Company, set_identity
+from typing import Optional
 
 # Required by SEC — set your identity once
 set_identity("Your Name yourname@email.com")
 
+
 def get_fiscal_quarter(period_of_report: str) -> int:
-    """
-    Derives the fiscal quarter number from the filing's own period_of_report date.
-    This works regardless of when the company's fiscal year starts.
-    """
-    month = int(period_of_report[5:7])  # Extract MM from YYYY-MM-DD
+    """Derives calendar quarter from period_of_report date (YYYY-MM-DD)."""
+    month = int(period_of_report[5:7])
     if month in (1, 2, 3):
         return 1
     elif month in (4, 5, 6):
@@ -17,59 +16,127 @@ def get_fiscal_quarter(period_of_report: str) -> int:
     elif month in (7, 8, 9):
         return 3
     else:
-        return 4  # Shouldn't appear in 10-Qs but just in case
-    
-def get_10q_sections(ticker: str, year: int = None, quarter: int = None):
+        return 4
+
+
+def _get_section(tenq, *keys) -> Optional[str]:
+    """
+    Try each candidate key in order; return the first non-empty result.
+    Covers variations like 'Part I, Item 2' vs 'PART I, ITEM 2' vs 'Item 2'.
+    """
+    for key in keys:
+        try:
+            val = tenq[key]
+            if val:
+                return str(val)
+        except (KeyError, TypeError, AttributeError):
+            pass
+    return None
+
+
+def _list_available_sections(tenq) -> list:
+    """Return section keys present in this filing (useful for debugging missing sections)."""
+    try:
+        raw = tenq.items
+        if isinstance(raw, dict):
+            return [k for k, v in raw.items() if v]
+    except (AttributeError, TypeError):
+        pass
+    return []
+
+
+def get_10q_sections(ticker: str, year: int = None, quarter: int = None) -> dict:
     """
     Fetches a 10-Q and returns the key sections as clean text.
     Defaults to the most recent filing if year/quarter not specified.
+
+    Quarter matching: when year is given, filings are ordered oldest→newest within
+    that year (Q1=first filing, Q2=second, Q3=third). This follows fiscal-year order
+    regardless of calendar month, which matches how analysts reference quarters.
     """
     company = Company(ticker)
-    
-    # Get 10-Q filings
+
     if year:
-        # Get all 10-Qs for that year directly from edgartools
         filings = company.get_filings(form="10-Q", date=f"{year}-01-01:{year}-12-31")
     else:
         filings = company.get_filings(form="10-Q")
 
-    # Convert to list sorted oldest -> newest
     filing_list = sorted(list(filings), key=lambda f: str(f.filing_date))
 
     if not filing_list:
-        raise ValueError(f"No 10-Q filings found for {ticker} in {year}")
+        raise ValueError(
+            f"No 10-Q filings found for {ticker}" + (f" in {year}" if year else "")
+        )
 
     if quarter:
         idx = quarter - 1  # Q1=0, Q2=1, Q3=2
         if idx >= len(filing_list):
-            available = [str(f.period_of_report) for f in filing_list]
+            available = [
+                f"{str(f.period_of_report)} (Q{get_fiscal_quarter(str(f.period_of_report))})"
+                for f in filing_list
+            ]
             raise ValueError(
-                f"Quarter {quarter} not found for {ticker} in {year}. "
-                f"Available periods: {available}"
+                f"Quarter {quarter} not found for {ticker}"
+                + (f" in {year}" if year else "")
+                + f". Available filings: {available}"
             )
         filing = filing_list[idx]
     else:
-        filing = filing_list[-1]  # most recent
+        filing = filing_list[-1]
 
-    # Parse into the structured TenQ object
     tenq = filing.obj()
+    sections: dict = {}
 
-    sections = {}
+    # --- Part I, Item 2: MD&A ---
+    sections["mdna"] = _get_section(
+        tenq,
+        "Part I, Item 2",
+        "PART I, ITEM 2",
+        "Item 2",
+        "ITEM 2",
+        "Management's Discussion and Analysis",
+        "Management's Discussion and Analysis of Financial Condition and Results of Operations",
+    )
 
-    # --- MD&A (Item 2) ---
-    # Most important for sentiment — management's own narrative
-    try:
-        sections["mdna"] = tenq["Part I, Item 2"]
-    except (KeyError, TypeError):
-        sections["mdna"] = None
+    # --- Part II, Item 1A: Risk Factors ---
+    sections["risk_factors"] = _get_section(
+        tenq,
+        "Part II, Item 1A",
+        "PART II, ITEM 1A",
+        "Item 1A",
+        "ITEM 1A",
+        "Risk Factors",
+    )
 
-    # --- Risk Factors (Item 1A) ---
-    try:
-        sections["risk_factors"] = tenq["Part II, Item 1A"]
-    except (KeyError, TypeError):
-        sections["risk_factors"] = None
+    # --- Part I, Item 3: Quantitative and Qualitative Disclosures About Market Risk ---
+    sections["market_risk"] = _get_section(
+        tenq,
+        "Part I, Item 3",
+        "PART I, ITEM 3",
+        "Item 3",
+        "ITEM 3",
+        "Quantitative and Qualitative Disclosures About Market Risk",
+    )
 
-    # --- Financial Statements (Item 1) ---
+    # --- Part I, Item 4: Controls and Procedures ---
+    sections["controls"] = _get_section(
+        tenq,
+        "Part I, Item 4",
+        "PART I, ITEM 4",
+        "Item 4",
+        "ITEM 4",
+        "Controls and Procedures",
+    )
+
+    # --- Part II, Item 1: Legal Proceedings ---
+    sections["legal_proceedings"] = _get_section(
+        tenq,
+        "Part II, Item 1",
+        "PART II, ITEM 1",
+        "Legal Proceedings",
+    )
+
+    # --- Financial Statements (Part I, Item 1) ---
     financials = tenq.financials
     if financials:
         sections["income_statement"] = financials.income_statement
@@ -80,13 +147,15 @@ def get_10q_sections(ticker: str, year: int = None, quarter: int = None):
         sections["balance_sheet"] = None
         sections["cash_flow"] = None
 
-    # --- Metadata ---
+    # --- Metadata (includes available_sections for debugging missing keys) ---
     sections["metadata"] = {
         "ticker": ticker,
         "company_name": filing.company,
-        "period_of_report": filing.period_of_report,
+        "period_of_report": str(filing.period_of_report),
+        "fiscal_quarter": get_fiscal_quarter(str(filing.period_of_report)),
         "filed": str(filing.filing_date),
         "accession_number": filing.accession_number,
+        "available_sections": _list_available_sections(tenq),
     }
 
     return sections
@@ -109,7 +178,6 @@ def print_section_preview(sections: dict, chars: int = 500):
             print(text[:chars] + "..." if len(text) > chars else text)
 
 
-# --- Example usage ---
 if __name__ == "__main__":
     sections = get_10q_sections("AAPL")
     print_section_preview(sections)
