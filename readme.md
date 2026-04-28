@@ -7,7 +7,7 @@
 Install the required packages:
 
 ```bash
-pip install edgartools transformers openai ollama python-dotenv
+pip install edgartools transformers python-dotenv openai mcp anthropic
 ```
 
 Install PyTorch with the correct version for your system by visiting the official selector:
