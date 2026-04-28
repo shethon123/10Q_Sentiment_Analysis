@@ -1,7 +1,11 @@
 from typing import Optional
+from mcp.server.fastmcp import FastMCP
 from download import get_10q_sections
 
+mcp = FastMCP("10Q Analysis")
 
+
+@mcp.tool()
 def fetch_10q_mda(ticker: str, year: Optional[int] = None, quarter: Optional[int] = None) -> str:
     """
     Returns the MD&A section (Part I, Item 2) from a 10-Q.
@@ -16,6 +20,7 @@ def fetch_10q_mda(ticker: str, year: Optional[int] = None, quarter: Optional[int
     return sections.get("mdna") or "MD&A section not found."
 
 
+@mcp.tool()
 def fetch_10q_risk_factors(ticker: str, year: Optional[int] = None, quarter: Optional[int] = None) -> str:
     """
     Returns the Risk Factors section (Part II, Item 1A) from a 10-Q.
@@ -30,6 +35,7 @@ def fetch_10q_risk_factors(ticker: str, year: Optional[int] = None, quarter: Opt
     return sections.get("risk_factors") or "Risk factors not found."
 
 
+@mcp.tool()
 def fetch_10q_financials(ticker: str, year: Optional[int] = None, quarter: Optional[int] = None) -> dict:
     """
     Returns structured financial statements (income statement, balance sheet, cash flow) from a 10-Q.
@@ -48,6 +54,7 @@ def fetch_10q_financials(ticker: str, year: Optional[int] = None, quarter: Optio
     }
 
 
+@mcp.tool()
 def fetch_10q_market_risk(ticker: str, year: Optional[int] = None, quarter: Optional[int] = None) -> str:
     """
     Returns the Quantitative and Qualitative Disclosures About Market Risk section (Part I, Item 3).
@@ -62,6 +69,7 @@ def fetch_10q_market_risk(ticker: str, year: Optional[int] = None, quarter: Opti
     return sections.get("market_risk") or "Market risk section not found."
 
 
+@mcp.tool()
 def fetch_10q_legal_proceedings(ticker: str, year: Optional[int] = None, quarter: Optional[int] = None) -> str:
     """
     Returns the Legal Proceedings section (Part II, Item 1) from a 10-Q.
@@ -76,6 +84,7 @@ def fetch_10q_legal_proceedings(ticker: str, year: Optional[int] = None, quarter
     return sections.get("legal_proceedings") or "Legal proceedings section not found."
 
 
+@mcp.tool()
 def fetch_10q_all_sections(ticker: str, year: Optional[int] = None, quarter: Optional[int] = None) -> dict:
     """
     Returns all available 10-Q sections in a single call: MD&A, risk factors, market risk,
@@ -100,3 +109,7 @@ def fetch_10q_all_sections(ticker: str, year: Optional[int] = None, quarter: Opt
         "balance_sheet": str(sections.get("balance_sheet") or "Not available"),
         "cash_flow": str(sections.get("cash_flow") or "Not available"),
     }
+
+
+if __name__ == "__main__":
+    mcp.run()
