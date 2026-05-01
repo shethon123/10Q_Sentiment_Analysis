@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SentinelIQ — 10-Q Tone & Risk Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="styles.css?v=1777586298954" />
+</head>
+<body data-theme="dark">
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="components.jsx"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    window.SUGGESTED_QUERIES = [
+      { ticker: "AAPL", q: "Apple Q2 2024" },
+      { ticker: "MSFT", q: "Microsoft Q1 2025" },
+      { ticker: "NVDA", q: "Nvidia Q3 2024" },
+    ];
+
+    window.ANALYSIS_STEPS = [
+      "Fetching SEC filing from EDGAR",
+      "Extracting MD&A section",
+      "Analyzing risk factors",
+      "Running FinBERT sentiment enrichment",
+      "Generating structured summary",
+    ];
+
+    function transformApiResponse(api) {
+      const {
+        overallToneAssessment = "",
+        overallSentiment = { label: "NEUTRAL", confidence: 0 },
+        keyRiskSignals = [],
+        notableChanges = [],
+        evidenceCitations = [],
+        meta = {},
+      } = api;
+
+      const labelToSign = { POSITIVE: 1, NEGATIVE: -1, NEUTRAL: 0 };
+      const toneScore = (labelToSign[overallSentiment.label] ?? 0) * overallSentiment.confidence;
+
+      const allItems = [...keyRiskSignals, ...notableChanges, ...evidenceCitations];
+      const counts = { positive: 0, neutral: 0, negative: 0 };
+      allItems.forEach((item) => {
+        const key = (item.sentiment || "neutral").toLowerCase();
+        if (key in counts) counts[key]++;
+      });
+      const total = allItems.length || 1;
+      const sentimentBreakdown = {
+        positive: counts.positive / total,
+        neutral: counts.neutral / total,
+        negative: counts.negative / total,
+      };
+
+      const scoreToSeverity = (score, sentiment) => {
+        const s = (sentiment || "").toLowerCase();
+        if (s === "negative" && score > 0.7) return "high";
+        if (score > 0.4) return "medium";
+        return "low";
+      };
+      const mappedRisks = keyRiskSignals.map((r, i) => ({
+        severity: scoreToSeverity(r.score, r.sentiment),
+        label: r.risk,
+        detail: r.risk,
+        citation: i + 1,
+      }));
+
+      const inferDirection = (key) => {
+        const t = (key || "").toLowerCase();
+        if (/increas|grew|growth|higher|improv|gain|rose|surged|up\b/.test(t)) return "up";
+        if (/decreas|fell|fall|lower|declin|drop|reduc|loss|down\b/.test(t)) return "down";
+        return "flat";
+      };
+      const mappedChanges = {};
+      notableChanges.forEach((c) => {
+        mappedChanges[c.key] = {
+          direction: inferDirection(c.key),
+          delta: ((c.score || 0) * 100).toFixed(0) + "%",
+          detail: c.text,
+        };
+      });
+
+      const mappedCitations = evidenceCitations.map((c, i) => ({
+        n: i + 1,
+        quote: c.text,
+      }));
+
+      const mappedMeta = {
+        ticker: meta.ticker || "—",
+        company: meta.company_name || "—",
+        filing: "10-Q",
+        period: meta.period_of_report || "—",
+        filedOn: meta.filed || "—",
+        pages: "—",
+        tokensAnalyzed: 0,
+      };
+
+      return {
+        summary: {
+          meta: mappedMeta,
+          toneScore,
+          confidence: overallSentiment.confidence,
+          overallToneAssessment,
+          sentimentBreakdown,
+          keyRiskSignals: mappedRisks,
+          notableChangesFromPriorQuarter: mappedChanges,
+          specificEvidenceCitations: mappedCitations,
+        },
+      };
+    }
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "theme": "light"
+    }/*EDITMODE-END*/;
+
+    function App() {
+      const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
+      const [phase, setPhase] = useState("idle"); // idle | analyzing | results | error
+      const [query, setQuery] = useState("");
+      const [data, setData] = useState(null);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        document.body.setAttribute("data-theme", tweaks.theme);
+      }, [tweaks.theme]);
+
+      const onSearch = async (q) => {
+        setQuery(q);
+        setPhase("analyzing");
+        setData(null);
+        setError(null);
+        try {
+          const res = await fetch("http://localhost:8000/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: q }),
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.detail || `HTTP ${res.status}`);
+          }
+          const json = await res.json();
+          setData(transformApiResponse(json));
+          setPhase("results");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (err) {
+          setError(err.message);
+          setPhase("error");
+        }
+      };
+
+      const onReset = () => {
+        setPhase("idle");
+        setQuery("");
+        setData(null);
+        setError(null);
+      };
+
+      return (
+        <>
+          {phase === "idle" && <BrandPill />}
+          {phase !== "idle" && (
+            <SearchHeader
+              onSearch={onSearch}
+              isAnalyzing={phase === "analyzing"}
+              hasResults={phase === "results"}
+              onReset={onReset}
+              theme={tweaks.theme}
+            />
+          )}
+
+          <main>
+            {phase === "idle" && <HeroState onSearch={onSearch} />}
+            {phase === "analyzing" && <AnalyzingState query={query} />}
+            {phase === "results" && data && <Results data={data} query={query} />}
+            {phase === "error" && (
+              <div className="siq-analyzing">
+                <div className="siq-analyzing-card">
+                  <div className="siq-analyzing-title" style={{ color: "var(--siq-neg, #f87171)" }}>
+                    Analysis failed
+                  </div>
+                  <div className="siq-analyzing-query">{error}</div>
+                  <button
+                    className="siq-go"
+                    style={{ marginTop: "1.5rem" }}
+                    onClick={onReset}
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            )}
+          </main>
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection title="Appearance">
+              <TweakRadio
+                label="Theme"
+                value={tweaks.theme}
+                onChange={(v) => setTweak("theme", v)}
+                options={[
+                  { value: "dark", label: "Dark" },
+                  { value: "light", label: "Light" },
+                ]}
+              />
+            </TweakSection>
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

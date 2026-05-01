@@ -16,12 +16,15 @@ SYSTEM_PROMPT = (
     "always respond with ONLY a JSON object in exactly this format:\n"
     "{\n"
     '  "summary": {\n'
+    '    "meta": {"ticker": "AAPL", "company_name": "Apple Inc.", "period_of_report": "2024-09-30", "filed": "2024-11-01", "accession_number": "0001234"},\n'
     '    "overallToneAssessment": "string describing overall tone",\n'
     '    "keyRiskSignals": ["risk1", "risk2"],\n'
     '    "notableChangesFromPriorQuarter": {"changeKey": "description"},\n'
     '    "specificEvidenceCitations": ["[1] direct quote", "[2] ..."]\n'
     "  }\n"
     "}\n"
+    "Call fetch_10q_metadata with the same ticker, year, and quarter you use for other tools, "
+    "and embed the parsed result as the value of the 'meta' field.\n"
     "Do not include any text outside the JSON object."
 )
 
@@ -43,11 +46,11 @@ def parse_llm_response(content: str):
     return content
 
 
-def _openai_tools(tools: list[dict]) -> list[dict]:
+def openai_tools(tools: list[dict]) -> list[dict]:
     return [{"type": "function", "function": t} for t in tools]
 
 
-def _claude_tools(tools: list[dict]) -> list[dict]:
+def claude_tools(tools: list[dict]) -> list[dict]:
     return [
         {"name": t["name"], "description": t.get("description", ""), "input_schema": t["parameters"]}
         for t in tools
@@ -65,7 +68,7 @@ class OllamaClient:
     ) -> tuple[list, list[tuple[str, str, dict]], str]:
         response = self._ollama.chat(
             model=self.model,
-            tools=_openai_tools(tools),
+            tools=openai_tools(tools),
             messages=messages,
         )
         msg = response.message
@@ -90,7 +93,7 @@ class OpenAIClient:
     ) -> tuple[list, list[tuple[str, str, dict]], str]:
         response = self._client.chat.completions.create(
             model=self.model,
-            tools=_openai_tools(tools),
+            tools=openai_tools(tools),
             messages=messages,
         )
         msg = response.choices[0].message
@@ -132,7 +135,7 @@ class ClaudeClient:
             model=self.model,
             max_tokens=4096,
             system=system,
-            tools=_claude_tools(tools),
+            tools=claude_tools(tools),
             messages=claude_messages,
         )
 

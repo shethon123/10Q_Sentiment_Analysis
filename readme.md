@@ -7,7 +7,7 @@
 Install the required packages:
 
 ```bash
-pip install edgartools transformers python-dotenv openai mcp anthropic
+pip install edgartools transformers python-dotenv openai mcp anthropic uvicorn fastapi
 ```
 
 Install PyTorch with the correct version for your system by visiting the official selector:
@@ -51,8 +51,21 @@ Make sure the Ollama service is running before starting the app.
 
 ---
 
-## Running the App
+## Running the CLI
 
 ```bash
 python cli.py
 ```
+
+## Running the webiste
+
+On One Terminal
+```bash
+uvicorn api:app --reload
+```
+
+On Another Terminal
+```bash
+python Website/serve.py
+```
+

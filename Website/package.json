@@ -1,0 +1,10 @@
+{
+  "name": "sentineliq",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "serve . -p 3001"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}
