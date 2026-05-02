@@ -18,14 +18,18 @@ SYSTEM_PROMPT = (
     '  "summary": {\n'
     '    "meta": {"ticker": "AAPL", "company_name": "Apple Inc.", "period_of_report": "2024-09-30", "filed": "2024-11-01", "accession_number": "0001234"},\n'
     '    "overallToneAssessment": "string describing overall tone",\n'
-    '    "keyRiskSignals": ["risk1", "risk2"],\n'
+    '    "keyRiskSignals": ["risk signal 1", "risk signal 2", "risk signal 3", "risk signal 4", "risk signal 5", "risk signal 6", "risk signal 7"],\n'
     '    "notableChangesFromPriorQuarter": {"changeKey": "description"},\n'
-    '    "specificEvidenceCitations": ["[1] direct quote", "[2] ..."]\n'
+    '    "specificEvidenceCitations": ["[1] direct quote from filing", "[2] direct quote", "[3] direct quote", "[4] direct quote", "[5] direct quote", "[6] direct quote", "[7] direct quote"]\n'
     "  }\n"
-    "}\n"
-    "Call fetch_10q_metadata with the same ticker, year, and quarter you use for other tools, "
+    "}\n\n"
+    "Requirements:\n"
+    "- keyRiskSignals: include AT LEAST 7 distinct risk signals. Each must be a complete descriptive phrase (10+ words) drawn from the risk factors and MD&A sections.\n"
+    "- specificEvidenceCitations: include AT LEAST 7 direct verbatim quotes from the filing that support the tone assessment. Each quote should be 15–80 words.\n"
+    "- notableChangesFromPriorQuarter: include AT LEAST 4 distinct changes observed in the financial statements or MD&A.\n"
+    "- Call fetch_10q_metadata with the same ticker, year, and quarter you use for other tools, "
     "and embed the parsed result as the value of the 'meta' field.\n"
-    "Do not include any text outside the JSON object."
+    "- Do not include any text outside the JSON object."
 )
 
 _SERVER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp_server.py")

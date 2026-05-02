@@ -46,9 +46,6 @@
         meta = {},
       } = api;
 
-      const labelToSign = { POSITIVE: 1, NEGATIVE: -1, NEUTRAL: 0 };
-      const toneScore = (labelToSign[overallSentiment.label] ?? 0) * overallSentiment.confidence;
-
       const allItems = [...keyRiskSignals, ...notableChanges, ...evidenceCitations];
       const counts = { positive: 0, neutral: 0, negative: 0 };
       allItems.forEach((item) => {
@@ -61,6 +58,11 @@
         neutral: counts.neutral / total,
         negative: counts.negative / total,
       };
+
+      const labelToSign = { POSITIVE: 1, NEGATIVE: -1, NEUTRAL: 0 };
+      const dominantLabel = (overallSentiment.label || "NEUTRAL").toLowerCase();
+      const proportion = sentimentBreakdown[dominantLabel] || 0;
+      const toneScore = (labelToSign[overallSentiment.label] ?? 0) * proportion;
 
       const scoreToSeverity = (score, sentiment) => {
         const s = (sentiment || "").toLowerCase();

@@ -59,11 +59,15 @@ def compute_overall_sentiment(data: dict) -> dict:
     if not any(buckets.values()):
         return {"label": "NEUTRAL", "confidence": 0.0}
 
-    averages = {
-        label: sum(vals) / len(vals) if vals else 0.0
+    total_items = sum(len(v) for v in buckets.values())
+    # Weight by proportion of items AND their confidence so a high-confidence minority
+    # label cannot outrank a low-confidence majority label.
+    weighted = {
+        label: sum(vals) / total_items if vals else 0.0
         for label, vals in buckets.items()
     }
-    overall_label = max(averages, key=averages.get)
-    confidence = round(averages[overall_label], 4)
+    overall_label = max(weighted, key=weighted.get)
+    # Confidence = average FinBERT score for items in the winning label
+    confidence = round(sum(buckets[overall_label]) / len(buckets[overall_label]), 4)
 
     return {"label": overall_label.upper(), "confidence": confidence}
