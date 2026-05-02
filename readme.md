@@ -2,7 +2,27 @@
 
 ## Prerequisites
 
-### 1. Python Dependencies
+### 1. Create a Python Virtual Environment
+
+Create and activate a virtual environment before installing any dependencies:
+
+**Windows:**
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+**macOS / Linux:**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+> You should see `(.venv)` in your terminal prompt once activated. Run all subsequent commands inside this environment.
+
+---
+
+### 2. Python Dependencies
 
 Install the required packages:
 
@@ -27,19 +47,22 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 ---
 
-### 2. Environment Variables
+### 3. Environment Variables
 
-Copy or create a `.env` file in the project root and set your Ollama API key:
+Copy or create a `.env` file in the project root and set your API keys:
 
 ```
-OLLAMA_API_KEY=your_ollama_api_key_here
+LLM_PROVIDER=claude          # ollama | openai | claude
+ANTHROPIC_API_KEY=your_key   # required if LLM_PROVIDER=claude
+OPENAI_API_KEY=your_key      # required if LLM_PROVIDER=openai
+OLLAMA_MODEL=gemma4:latest   # required if LLM_PROVIDER=ollama
 ```
 
-> ⚠️ **Required:** The app will not work without a valid `OLLAMA_API_KEY` in `.env`.
+> ⚠️ **Required:** The app will not work without valid credentials in `.env`.
 
 ---
 
-### 3. Ollama
+### 4. Ollama (optional — only if using `LLM_PROVIDER=ollama`)
 
 Install Ollama from https://ollama.com and then pull the required model:
 
@@ -57,15 +80,14 @@ Make sure the Ollama service is running before starting the app.
 python cli.py
 ```
 
-## Running the webiste
+## Running the Website
 
-On One Terminal
+In one terminal, start the API server:
 ```bash
 uvicorn api:app --reload
 ```
 
-On Another Terminal
+In another terminal, serve the frontend:
 ```bash
 python Website/serve.py
 ```
-
