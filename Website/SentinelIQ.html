@@ -16,8 +16,8 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-  <script type="text/babel" src="tweaks-panel.jsx"></script>
-  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=4"></script>
+  <script type="text/babel" src="components.jsx?v=4"></script>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
@@ -39,6 +39,7 @@
     function transformApiResponse(api) {
       const {
         overallToneAssessment = "",
+        analystTakeaway = "",
         overallSentiment = { label: "NEUTRAL", confidence: 0 },
         keyRiskSignals = [],
         notableChanges = [],
@@ -113,6 +114,7 @@
           toneScore,
           confidence: overallSentiment.confidence,
           overallToneAssessment,
+          analystTakeaway,
           sentimentBreakdown,
           keyRiskSignals: mappedRisks,
           notableChangesFromPriorQuarter: mappedChanges,
@@ -131,6 +133,7 @@
       const [query, setQuery] = useState("");
       const [data, setData] = useState(null);
       const [error, setError] = useState(null);
+      const [currentTool, setCurrentTool] = useState(null);
 
       useEffect(() => {
         document.body.setAttribute("data-theme", tweaks.theme);
@@ -141,6 +144,7 @@
         setPhase("analyzing");
         setData(null);
         setError(null);
+        setCurrentTool(null);
         try {
           const res = await fetch("http://localhost:8000/analyze", {
             method: "POST",
@@ -151,10 +155,29 @@
             const body = await res.json().catch(() => ({}));
             throw new Error(body.detail || `HTTP ${res.status}`);
           }
-          const json = await res.json();
-          setData(transformApiResponse(json));
-          setPhase("results");
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split("\n\n");
+            buffer = parts.pop();
+            for (const part of parts) {
+              if (!part.startsWith("data: ")) continue;
+              const event = JSON.parse(part.slice(6));
+              if (event.type === "tool") {
+                setCurrentTool(event.name);
+              } else if (event.type === "result") {
+                setData(transformApiResponse(event.data));
+                setPhase("results");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (event.type === "error") {
+                throw new Error(event.detail);
+              }
+            }
+          }
         } catch (err) {
           setError(err.message);
           setPhase("error");
@@ -166,6 +189,7 @@
         setQuery("");
         setData(null);
         setError(null);
+        setCurrentTool(null);
       };
 
       return (
@@ -183,7 +207,7 @@
 
           <main>
             {phase === "idle" && <HeroState onSearch={onSearch} />}
-            {phase === "analyzing" && <AnalyzingState query={query} />}
+            {phase === "analyzing" && <AnalyzingState query={query} currentTool={currentTool} />}
             {phase === "results" && data && <Results data={data} query={query} />}
             {phase === "error" && (
               <div className="siq-analyzing">

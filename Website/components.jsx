@@ -185,17 +185,18 @@ function HeroState({ onSearch }) {
 // =====================================================================
 // Analyzing flow
 // =====================================================================
-function AnalyzingState({ query }) {
-  const steps = window.ANALYSIS_STEPS;
-  const [active, setActive] = useState(0);
+function formatToolName(name) {
+  if (!name) return "Connecting to EDGAR…";
+  const labels = {
+    fetch_10q_mda: "Fetching MD&A section…",
+    fetch_10q_risk_factors: "Fetching risk factors…",
+    fetch_10q_financials: "Fetching financial statements…",
+    fetch_10q_metadata: "Fetching filing metadata…",
+  };
+  return labels[name] || name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) + "…";
+}
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setActive((prev) => (prev >= steps.length ? 0 : prev + 1));
-    }, 700);
-    return () => clearInterval(id);
-  }, [query]);
-
+function AnalyzingState({ query, currentTool }) {
   return (
     <div className="siq-analyzing" data-screen-label="02 Analyzing">
       <div className="siq-analyzing-card">
@@ -206,33 +207,12 @@ function AnalyzingState({ query }) {
         </div>
         <div className="siq-analyzing-title">Analyzing filing</div>
         <div className="siq-analyzing-query">"{query}"</div>
-
-        <ul className="siq-steps">
-          {steps.map((s, i) => {
-            const state =
-            i < active ? "done" : i === active ? "active" : "pending";
-            return (
-              <li key={s} className={`siq-step siq-step-${state}`}>
-                <div className="siq-step-indicator">
-                  {state === "done" ?
-                  <svg viewBox="0 0 16 16" width="10" height="10">
-                      <path d="M3 8 L7 12 L13 4" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg> :
-                  state === "active" ?
-                  <span className="siq-step-spin" /> :
-
-                  <span className="siq-step-dot" />
-                  }
-                </div>
-                <span className="siq-step-label">{s}</span>
-                {state === "active" && <span className="siq-step-elapsed">…</span>}
-              </li>);
-
-          })}
-        </ul>
+        <div className="siq-analyzing-tool">
+          <span className="siq-step-spin" />
+          {formatToolName(currentTool)}
+        </div>
       </div>
     </div>);
-
 }
 
 // =====================================================================
@@ -264,26 +244,34 @@ function Results({ data, query }) {
         <section className="siq-card siq-span-3">
           <CardHeader
             kicker="03"
-            title="Key Risk Signals"
-            subtitle={`${s.keyRiskSignals.length} signals detected · ranked by severity`} />
-          
-          <RiskGrid risks={s.keyRiskSignals} />
+            title="AI Analyst Summary"
+            subtitle="Investor-facing interpretation" />
+          <p className="siq-analyst-takeaway">{s.analystTakeaway}</p>
         </section>
 
         <section className="siq-card siq-span-3">
           <CardHeader
             kicker="04"
-            title="Notable Changes from Prior Quarter" />
-          
-          <DeltaTable changes={s.notableChangesFromPriorQuarter} />
+            title="Key Risk Signals"
+            subtitle={`${s.keyRiskSignals.length} signals detected · ranked by severity`} />
+
+          <RiskGrid risks={s.keyRiskSignals} />
         </section>
 
         <section className="siq-card siq-span-3">
           <CardHeader
             kicker="05"
+            title="Notable Changes from Prior Quarter" />
+
+          <DeltaTable changes={s.notableChangesFromPriorQuarter} />
+        </section>
+
+        <section className="siq-card siq-span-3">
+          <CardHeader
+            kicker="06"
             title="Citations"
             subtitle="Grounded evidence from the filing" />
-          
+
           <Citations citations={s.specificEvidenceCitations} />
         </section>
       </div>
@@ -465,13 +453,23 @@ function RiskGrid({ risks }) {
 // =====================================================================
 // Delta table (Notable Changes)
 // =====================================================================
+function formatChangeKey(key) {
+  return key
+    .replace(/YoY/g, " Year Over Year")
+    .replace(/QoQ/g, " Quarter Over Quarter")
+    .replace(/([A-Z])/g, " $1")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function DeltaTable({ changes }) {
   const entries = Object.entries(changes);
   return (
     <div className="siq-delta">
       {entries.map(([key, val]) =>
       <div key={key} className={`siq-delta-row siq-delta-${val.direction}`}>
-          <div className="siq-delta-key">{key}</div>
+          <div className="siq-delta-key">{formatChangeKey(key)}</div>
           <div className="siq-delta-bar">
             <DeltaBar direction={val.direction} delta={val.delta} />
           </div>

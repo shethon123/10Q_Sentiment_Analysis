@@ -3,6 +3,8 @@ window.MOCK_RESPONSE = {
   summary: {
     overallToneAssessment:
       "Cautiously optimistic with hedged language around macro headwinds. Management emphasizes operational discipline and margin expansion while acknowledging softening enterprise demand and FX volatility. Tone is more measured than the prior quarter, with notable de-emphasis of forward growth claims.",
+    analystTakeaway:
+      "Management struck a cautious but stable tone this quarter, balancing margin confidence against rising enterprise headwinds and FX pressure. Investors should watch deal cycle elongation and customer concentration trends, which are early-stage but directionally concerning. The filing does not signal imminent deterioration, but reduced forward-looking conviction warrants monitoring into next quarter.",
     toneScore: 0.34, // -1 negative, +1 positive
     confidence: 0.87,
     keyRiskSignals: [

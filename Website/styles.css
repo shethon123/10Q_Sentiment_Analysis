@@ -532,6 +532,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
   margin: 6px 0 28px;
   word-break: break-word;
 }
+.siq-analyzing-tool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
 .siq-steps {
   list-style: none;
   padding: 0;
@@ -818,6 +826,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding: 16px 18px;
   background: var(--bg-2);
   border-left: 2px solid var(--accent);
+  border-radius: 4px;
+}
+
+/* analyst takeaway */
+.siq-analyst-takeaway {
+  margin: 20px 0 4px;
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.7;
+  text-wrap: pretty;
+  padding: 16px 18px;
+  background: var(--bg-2);
+  border-left: 2px solid var(--siq-pos, #34d399);
   border-radius: 4px;
 }
 

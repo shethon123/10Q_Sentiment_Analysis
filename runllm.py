@@ -18,15 +18,17 @@ SYSTEM_PROMPT = (
     '  "summary": {\n'
     '    "meta": {"ticker": "AAPL", "company_name": "Apple Inc.", "period_of_report": "2024-09-30", "filed": "2024-11-01", "accession_number": "0001234"},\n'
     '    "overallToneAssessment": "string describing overall tone",\n'
+    '    "analystTakeaway": "2-3 sentence investor-facing summary",\n'
     '    "keyRiskSignals": ["risk signal 1", "risk signal 2", "risk signal 3", "risk signal 4", "risk signal 5", "risk signal 6", "risk signal 7"],\n'
     '    "notableChangesFromPriorQuarter": {"changeKey": "description"},\n'
     '    "specificEvidenceCitations": ["[1] direct quote from filing", "[2] direct quote", "[3] direct quote", "[4] direct quote", "[5] direct quote", "[6] direct quote", "[7] direct quote"]\n'
     "  }\n"
     "}\n\n"
     "Requirements:\n"
-    "- keyRiskSignals: include AT LEAST 7 distinct risk signals. Each must be a complete descriptive phrase (10+ words) drawn from the risk factors and MD&A sections.\n"
-    "- specificEvidenceCitations: include AT LEAST 7 direct verbatim quotes from the filing that support the tone assessment. Each quote should be 15–80 words.\n"
-    "- notableChangesFromPriorQuarter: include AT LEAST 4 distinct changes observed in the financial statements or MD&A.\n"
+    "- analystTakeaway: write 2-3 sentences in plain English, investor-facing, synthesizing the overall tone and key risks into a single actionable takeaway. No jargon. Focus on what an investor should know.\n"
+    "- keyRiskSignals: include AT LEAST 5 distinct risk signals. Each must be a complete descriptive phrase (10+ words) drawn from the risk factors and MD&A sections.\n"
+    "- specificEvidenceCitations: include AT LEAST 5 direct verbatim quotes from the filing that support the tone assessment. Each quote should be 15–80 words.\n"
+    "- notableChangesFromPriorQuarter: include AT LEAST 3 distinct changes observed in the financial statements or MD&A.\n"
     "- Call fetch_10q_metadata with the same ticker, year, and quarter you use for other tools, "
     "and embed the parsed result as the value of the 'meta' field.\n"
     "- Do not include any text outside the JSON object."
@@ -186,7 +188,8 @@ def get_client():
         )
 
 
-async def _chat_async(user_message: str):
+async def _chat_async_stream(user_message: str):
+    """Async generator yielding tool events then a final result event."""
     client = get_client()
 
     server_params = StdioServerParameters(
@@ -218,13 +221,19 @@ async def _chat_async(user_message: str):
 
                 if tool_calls:
                     for tool_name, call_id, tool_input in tool_calls:
-                        args_str = ", ".join(f"{k}={v}" for k, v in tool_input.items())
-                        print(f"[Tool: {tool_name}({args_str})]")
+                        yield {"type": "tool", "name": tool_name, "args": tool_input}
                         result = await session.call_tool(tool_name, tool_input)
                         result_text = result.content[0].text if result.content else ""
                         messages.append(client.tool_result_message(tool_name, call_id, result_text))
                 else:
-                    return parse_llm_response(text)
+                    yield {"type": "result", "data": parse_llm_response(text)}
+                    return
+
+
+async def _chat_async(user_message: str):
+    async for event in _chat_async_stream(user_message):
+        if event["type"] == "result":
+            return event["data"]
 
 
 def chat(user_message: str):
